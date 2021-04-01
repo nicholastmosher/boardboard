@@ -21,15 +21,19 @@ main =
 
 type alias Model =
     { page : Page
+    , players: List Player
     , matches : List Match
+    , nextPlayerId : Int
     , typedGameName : String
     , typedWinner : String
+    , typedPlayerName : String
     }
 
 
 type Page
     = MyMatches
     | AddMatch
+    | AddPlayer
     | MyStats
 
 
@@ -39,22 +43,43 @@ type alias Match =
     }
 
 
+type alias Player =
+    { id : Int
+    , name : String
+    , deleted : Bool
+    }
+
+
+addPlayer : Int -> String -> List Player -> List Player
+addPlayer id name players =
+    let
+        player = { id = id, name = name, deleted = False }
+    in
+        players ++ [ player ]
+
+
 init : Model
 init =
     { page = MyMatches
+    , players = []
     , matches = []
+    , nextPlayerId = 0
     , typedGameName = ""
     , typedWinner = ""
+    , typedPlayerName = ""
     }
 
 
 type Msg
     = ClickMyMatches
     | ClickAddMatch
+    | ClickAddPlayer
     | ClickMyStats
     | TypedGameName String
     | TypedWinnerName String
+    | TypedPlayerName String
     | AddNewMatch
+    | AddNewPlayer
 
 
 update : Msg -> Model -> Model
@@ -64,15 +89,28 @@ update msg model =
 
         ClickAddMatch -> { model | page = AddMatch }
 
+        ClickAddPlayer -> { model | page = AddPlayer }
+
         ClickMyStats -> { model | page = MyStats }
 
-        TypedGameName gameName -> { model | typedGameName = gameName }
+        TypedGameName game -> { model | typedGameName = game }
 
         TypedWinnerName winner -> { model | typedWinner = winner }
 
+        TypedPlayerName name -> { model | typedPlayerName = name }
+
         AddNewMatch ->
-            { model |
-                matches = updateMatches model.typedGameName model.typedWinner model.matches
+            { model
+            | matches = updateMatches model.typedGameName model.typedWinner model.matches
+            , typedGameName = ""
+            , typedWinner = ""
+            }
+
+        AddNewPlayer ->
+            { model
+            | players = addPlayer model.nextPlayerId model.typedPlayerName model.players
+            , nextPlayerId = model.nextPlayerId + 1
+            , typedPlayerName = ""
             }
 
 
@@ -81,7 +119,7 @@ updateMatches gameName winnerName oldMatches =
     let
         newMatch = { gameName = gameName, winner = winnerName }
     in
-        newMatch :: oldMatches
+        oldMatches ++ [ newMatch ]
 
 
 view : Model -> Html Msg
@@ -115,6 +153,8 @@ viewPageWindow model =
 
             AddMatch -> viewPageAddMatch model
 
+            AddPlayer -> viewPageAddPlayer model
+
             MyStats -> viewPageMyStats model
 
 
@@ -133,7 +173,6 @@ viewMatchItem matchItem =
     row
         [ padding 20
         , width fill
-        --, Element.explain Debug.todo
         ]
         [ text ("Game: " ++ matchItem.gameName)
         , text ("Winner: " ++ matchItem.winner)
@@ -184,6 +223,37 @@ viewSubmitMatchButton model =
         }
 
 
+viewPageAddPlayer model =
+    column
+        [ height fill
+        , width fill
+        , Background.color <| rgb255 30 150 180
+        ]
+        [ viewNewPlayerName model
+        , viewAddPlayerSubmit model
+        ]
+
+
+viewNewPlayerName : Model -> Element Msg
+viewNewPlayerName model =
+    Input.text
+        [
+        ]
+        { onChange = \playerName -> TypedPlayerName playerName
+        , text =  model.typedPlayerName
+        , placeholder = Just <| placeholder [] (text "Player name")
+        , label = labelLeft [] (text "Player name")
+        }
+
+
+viewAddPlayerSubmit model =
+    Input.button
+        []
+        { onPress = Just AddNewPlayer
+        , label = (text "Submit")
+        }
+
+
 viewPageMyStats : Model -> Element Msg
 viewPageMyStats model =
     el
@@ -198,10 +268,10 @@ viewBottomNav : Model -> Element Msg
 viewBottomNav model =
     row
         [ width fill
-        --, Element.explain Debug.todo
         ]
         [ viewMyMatchesButton model
         , viewAddMatchesButton model
+        , viewAddPlayerButton model
         , viewMyStatsButton model
         ]
 
@@ -225,6 +295,10 @@ viewMyMatchesButton =
 viewAddMatchesButton : Model -> Element Msg
 viewAddMatchesButton =
     viewBottomNavButton "Add Match" ClickAddMatch
+
+viewAddPlayerButton : Model -> Element Msg
+viewAddPlayerButton =
+    viewBottomNavButton "Add Player" ClickAddPlayer
 
 viewMyStatsButton : Model -> Element Msg
 viewMyStatsButton =
